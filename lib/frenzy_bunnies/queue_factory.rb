@@ -9,13 +9,14 @@ class FrenzyBunnies::QueueFactory
     routing_key = options[:routing_key] || name
     durable = options[:durable]
     prefetch = options[:prefetch]
+    arguments = options[:arguments] || {}
 
     channel = @connection.create_channel
     channel.prefetch = prefetch
 
     exchange = channel.exchange(exchange_name, :type => exchange_type, :durable => durable)
 
-    queue = channel.queue(name, :durable => durable)
+    queue = channel.queue(name, :durable => durable, :arguments => arguments)
     queue.bind(exchange, :routing_key => routing_key)
     queue
   end

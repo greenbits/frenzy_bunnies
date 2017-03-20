@@ -30,6 +30,7 @@ module FrenzyBunnies::Worker
       @queue_opts[:prefetch] ||= 10
       @queue_opts[:durable] ||= false
       @queue_opts[:timeout_job_after] ||=5
+      @queue_opts[:handler] ||= FrenzyBunnies::Handlers::Oneshot
 
       if @queue_opts[:threads]
         @thread_pool = MarchHare::ThreadPools.fixed_of_size(@queue_opts[:threads])
@@ -41,25 +42,26 @@ module FrenzyBunnies::Worker
 
       say "#{@queue_opts[:threads] ? "#{@queue_opts[:threads]} threads " : ''}with #{@queue_opts[:prefetch]} prefetch on <#{queue_name}>."
 
-      q.subscribe(:ack => true, :blocking => false, :executor => @thread_pool) do |h, msg|
-        wkr = new
+      q.subscribe(:ack => true, :blocking => false, :executor => @thread_pool) do |headers, msg|
+        worker = new
+        handler = @queue_opts[:handler].new(headers.channel, q, @logger, { queue_options: @queue_opts })
         begin
           Timeout::timeout(@queue_opts[:timeout_job_after]) do
-            if(wkr.work(msg))
-              h.ack
+            if worker.work(msg)
+              handler.acknowledge(headers, msg)
               incr! :passed
             else
-              h.reject
+              handler.reject(headers, msg)
               incr! :failed
               error "REJECTED", msg
             end
           end
         rescue Timeout::Error
-          h.reject
+          handler.timeout(headers, msg)
           incr! :failed
           error "TIMEOUT #{@queue_opts[:timeout_job_after]}s", msg
         rescue
-          h.reject
+          handler.reject(headers, msg)
           incr! :failed
           error "ERROR #{$!}", msg
         end
