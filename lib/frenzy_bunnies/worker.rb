@@ -29,7 +29,7 @@ module FrenzyBunnies::Worker
 
       @queue_opts[:prefetch] ||= 10
       @queue_opts[:durable] ||= false
-      @queue_opts[:timeout_job_after] ||=5
+      @queue_opts[:timeout_job_after] = 5 if @queue_opts[:timeout_job_after].nil?
       @queue_opts[:handler] ||= FrenzyBunnies::Handlers::Oneshot
 
       if @queue_opts[:threads]
