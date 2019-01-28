@@ -8,6 +8,9 @@ module FrenzyBunnies::Worker
   def work
   end
 
+  def failed(err_info)
+  end
+
   def self.included(base)
     base.extend ClassMethods
   end
@@ -64,6 +67,8 @@ module FrenzyBunnies::Worker
           handler.reject(headers, msg)
           incr! :failed
           error "ERROR #{$!}", msg
+        ensure
+          worker.failed $!
         end
       end
 
